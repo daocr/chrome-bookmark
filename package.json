@@ -1,10 +1,38 @@
 {
-  "name": "${PROJECT_NAME}",
+  "name": "chrome-bookmark",
+  "private": true,
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite",
+    "build": "tsc && vite build && cp public/manifest.json dist/",
+    "preview": "vite preview"
   },
-  "private": true
+  "dependencies": {
+    "@langchain/core": "^1.1.17",
+    "@langchain/langgraph": "^1.1.2",
+    "@langchain/openai": "^1.2.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.563.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^3.4.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.18",
+    "@types/chrome": "^0.1.36",
+    "@types/node": "^25.0.10",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "10.4.23",
+    "postcss": "8.5.6",
+    "tailwindcss": "3.4.19",
+    "tailwindcss-animate": "^1.0.7",
+    "typescript": "~5.6.2",
+    "vite": "^6.0.5",
+    "vite-plugin-node-polyfills": "^0.25.0"
+  }
 }

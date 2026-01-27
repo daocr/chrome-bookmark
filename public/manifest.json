@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Chrome Bookmark Extension",
+  "version": "1.0.0",
+  "description": "Chrome extension using React, Vite and Shadcn/UI",
+  "side_panel": {
+    "default_path": "index.html"
+  },
+  "permissions": ["sidePanel", "bookmarks", "storage"],
+  "host_permissions": [
+    "https://ark.cn-beijing.volces.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Open Sidebar"
+  }
+}
