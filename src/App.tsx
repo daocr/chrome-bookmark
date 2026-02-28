@@ -1,7 +1,7 @@
-import { ChatPage } from "@/components/ChatPage";
+import {ChatPage} from "@/components/ChatPage";
 
 function App() {
-  return <ChatPage />;
+    return <ChatPage/>;
 }
 
 export default App;
