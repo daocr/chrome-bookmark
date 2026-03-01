@@ -2,7 +2,7 @@
  * Chrome Bookmarks LangGraph Tools (Optimized for LLM Subagents)
  *
  * 这套工具专门为大语言模型设计，包含了防止幻觉的强类型描述、
- * 批量操作支持、上下文裁剪、命令堆栈撤销（Undo Stack）以及安全的权限分组。
+ * 批量操作支持、上下文裁剪、命令堆栈撤销（Undo Stack）以及反爬虫机制。
  */
 
 import {tool} from "@langchain/core/tools";
@@ -80,7 +80,7 @@ export const getFolderStructure = tool(
     {
         name: "get_folder_structure",
         description: `Get the skeleton structure of all bookmark folders. 
-        CRITICAL: This returns ONLY folders, not bookmarks. Use this FIRST to find the correct numeric 'id' of a folder before creating or moving items.`,
+        CRITICAL WARNING: This returns ONLY folders, not bookmarks. Use this to find the correct numeric 'id' of a folder. DO NOT use this tool as a starting point to manually crawl or search for bookmarks item by item.`,
         schema: z.object({}),
     }
 );
@@ -89,6 +89,17 @@ export const searchBookmarks = tool(
     async ({query, maxResults = 20}, _config) => {
         try {
             const results = await chrome.bookmarks.search(query);
+
+            // 【防止死循环的核心】：搜不到时，强硬拒绝模型后续的手动查找尝试
+            if (results.length === 0) {
+                return JSON.stringify({
+                    success: true,
+                    data: [],
+                    count: 0,
+                    message: `Found 0 items for keyword '${query}'. CRITICAL: DO NOT use get_folder_structure or get_bookmark_children to manually search. Inform the user that the bookmark is not found.`,
+                });
+            }
+
             const limitedResults = results.slice(0, maxResults);
 
             // 为大模型加工数据：附加上完整路径，避免大模型再去一个个查 parentId
@@ -133,7 +144,8 @@ export const getBookmarkChildren = tool(
     },
     {
         name: "get_bookmark_children",
-        description: `Get all items (folders and bookmarks) directly inside a specific folder.`,
+        description: `Get all items (folders and bookmarks) directly inside a specific folder.
+        CRITICAL WARNING: NEVER use this tool in a loop to manually search or crawl for a bookmark. ONLY use this when the user EXPLICITLY asks to see the contents of one specific folder.`,
         schema: z.object({
             id: z.string().describe("The strictly NUMERIC ID of the folder (e.g., '1', '15'). Do NOT pass folder names like 'Tech'."),
         }),

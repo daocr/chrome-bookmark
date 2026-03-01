@@ -1,5 +1,5 @@
 import {AIMessage, ToolMessage} from "@langchain/core/messages";
-import {bookmarkTools} from "../tools/bookmarks";
+import {primaryAgentTools} from "../tools";
 import {AgentState} from "../state";
 
 // 导出 AgentState 类型供其他模块使用
@@ -7,9 +7,16 @@ export type {AgentState};
 
 /**
  * 创建工具名称到工具实例的映射
+ *
+ * 主代理使用的工具集 (primaryAgentTools):
+ * - call_subagent: 委派任务给子代理
+ * - ask_question: 向用户提问
+ * - request_plan_approval: 请求批准计划
+ * - write_todo: 写入待办事项
+ * - read_todo: 读取待办事项
  */
 const toolsByName = Object.fromEntries(
-    bookmarkTools.map((tool) => [tool.name, tool])
+    primaryAgentTools.map((tool) => [tool.name, tool])
 );
 
 /**

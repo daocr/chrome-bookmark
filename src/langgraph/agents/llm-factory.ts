@@ -9,7 +9,7 @@ export interface LLMConfig {
 }
 
 const DEFAULT_CONFIG: LLMConfig = {
-    model: "ep-20250331114927-lhcpd",
+    model: "ep-20260123150254-4nmxz",
     temperature: 0.9,
     apiKey: "fa012c3c-4429-4ab0-b786-62e074a6d52c",
     baseURL: "https://ark.cn-beijing.volces.com/api/v3",
@@ -74,20 +74,3 @@ export class LLMFactory {
 
 // 导出便捷函数
 export const getLLM = (config?: Partial<LLMConfig>) => LLMFactory.createLLM(config);
-export const createLLM = (config?: Partial<LLMConfig>) => LLMFactory.createFreshLLM(config);
-
-/**
- * 同步版本的 createLLM，使用默认配置（用于向后兼容）
- * @deprecated 使用 createLLM 替代
- */
-export const createLLMSync = (config?: Partial<LLMConfig>): ChatOpenAI => {
-    const mergedConfig = {...DEFAULT_CONFIG, ...config};
-    return new ChatOpenAI({
-        model: mergedConfig.model,
-        temperature: mergedConfig.temperature,
-        apiKey: mergedConfig.apiKey,
-        configuration: {
-            baseURL: mergedConfig.baseURL,
-        },
-    });
-};

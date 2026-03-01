@@ -53,4 +53,5 @@ export const requestPlanApproval = tool(
     }
 );
 
-export const interactionTools = [askQuestion, requestPlanApproval];
+// export const interactionTools = [askQuestion, requestPlanApproval];
+export const interactionTools = [askQuestion];
