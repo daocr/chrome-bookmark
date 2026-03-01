@@ -1,6 +1,7 @@
 import {AIMessage, ToolMessage} from "@langchain/core/messages";
 import {primaryAgentTools} from "../tools";
 import {AgentState} from "../state";
+import {LangGraphRunnableConfig} from "@langchain/langgraph";
 
 // 导出 AgentState 类型供其他模块使用
 export type {AgentState};
@@ -27,8 +28,12 @@ const toolsByName = Object.fromEntries(
  * 2. 检查是否包含工具调用
  * 3. 执行所有工具调用
  * 4. 返回工具执行结果
+ * 5. 通过 config.writer() 发送工具执行进度
  */
-export const toolNode = async (state: typeof AgentState.State) => {
+export const toolNode = async (
+    state: typeof AgentState.State,
+    config?: LangGraphRunnableConfig
+) => {
     const messages = state.messages as any[];
     const lastMessage = messages[messages.length - 1];
 
@@ -39,7 +44,19 @@ export const toolNode = async (state: typeof AgentState.State) => {
     }
 
     const result = [];
-    for (const toolCall of lastMessage.tool_calls ?? []) {
+    const toolCalls = lastMessage.tool_calls ?? [];
+
+    // 发送工具执行开始事件
+    if (toolCalls.length > 0) {
+        config?.writer?.({
+            type: "tool_execution_start",
+            count: toolCalls.length,
+            tools: toolCalls.map((tc: any) => ({name: tc.name, args: tc.args})),
+        });
+    }
+
+    for (let i = 0; i < toolCalls.length; i++) {
+        const toolCall = toolCalls[i];
         const tool = toolsByName[toolCall.name];
 
         if (!tool) {
@@ -51,18 +68,54 @@ export const toolNode = async (state: typeof AgentState.State) => {
             continue;
         }
 
+        // 发送单个工具开始执行事件
+        config?.writer?.({
+            type: "tool_start",
+            name: toolCall.name,
+            args: toolCall.args,
+            index: i,
+            total: toolCalls.length,
+        });
+
         try {
             // 按官方方式：直接传入 toolCall 对象
             const observation = await (tool as any).invoke(toolCall);
             console.warn(`Tool  observation "${toolCall.name}" : "${observation}"`);
             result.push(observation);
+
+            // 发送工具执行完成事件
+            config?.writer?.({
+                type: "tool_end",
+                name: toolCall.name,
+                output: observation.content || observation,
+                index: i,
+                total: toolCalls.length,
+            });
         } catch (error) {
             console.error(`Error invoking tool "${toolCall.name}":`, error);
+            const errorMsg = `Error: ${error instanceof Error ? error.message : String(error)}`;
             result.push(new ToolMessage({
-                content: `Error: ${error instanceof Error ? error.message : String(error)}`,
+                content: errorMsg,
                 tool_call_id: toolCall.id || "",
             }));
+
+            // 发送工具执行错误事件
+            config?.writer?.({
+                type: "tool_error",
+                name: toolCall.name,
+                error: errorMsg,
+                index: i,
+                total: toolCalls.length,
+            });
         }
+    }
+
+    // 发送所有工具执行完成事件
+    if (toolCalls.length > 0) {
+        config?.writer?.({
+            type: "tool_execution_end",
+            count: toolCalls.length,
+        });
     }
 
     return {

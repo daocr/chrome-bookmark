@@ -3,6 +3,24 @@
 @tailwind utilities;
 
 @layer base {
+    html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+    }
+
+    #root {
+        height: 100%;
+    }
+
+    /* Font families */
+    body {
+        font-family: 'Noto Sans', sans-serif;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Space Grotesk', sans-serif;
+    }
+
     :root {
         --background: 0 0% 100%;
         --foreground: 222.2 84% 4.9%;
@@ -47,9 +65,7 @@
         --input: 217.2 32.6% 17.5%;
         --ring: 224.3 76.3% 48%;
     }
-}
 
-@layer base {
     * {
         @apply border-border;
     }
@@ -57,4 +73,35 @@
     body {
         @apply bg-background text-foreground;
     }
+}
+
+/* Custom scrollbar styles */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+/* Custom range slider styles */
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    height: 16px;
+    width: 16px;
+    border-radius: 50%;
+    background: #137fec;
+    cursor: pointer;
+    margin-top: -6px;
+    box-shadow: 0 0 0 4px rgba(19, 127, 236, 0.2);
+}
+input[type="range"]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 4px;
+    cursor: pointer;
+    background: #cbd5e1;
+    border-radius: 2px;
+}
+.dark input[type="range"]::-webkit-slider-runnable-track {
+    background: #334155;
 }
