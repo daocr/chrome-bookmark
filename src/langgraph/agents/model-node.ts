@@ -3,6 +3,16 @@ import {primaryAgentTools} from "../tools";
 import {getLLM} from "./llm-factory";
 import {AgentState} from "../state";
 import {LangGraphRunnableConfig} from "@langchain/langgraph";
+import {
+    ThinkingStartEvent,
+    ThinkingContentEvent,
+    ThinkingEndEvent,
+    ToolPlanningEvent,
+    THINKING_START,
+    THINKING_CONTENT,
+    THINKING_END,
+    TOOL_PLANNING,
+} from "../events";
 
 // 使用 Vite ?raw 导入主代理系统提示词
 import PRIMARY_AGENT_PROMPT from "./prompt/primary-agent.txt?raw";
@@ -14,11 +24,7 @@ export type {AgentState};
 // 流式思考事件类型
 // ============================================================================
 
-export interface ThinkingEvent {
-    type: "thinking_start" | "thinking_content" | "thinking_end" | "tool_planning";
-    content?: string;
-    tools?: Array<{name: string; args: any}>;
-}
+export type ThinkingEvent = ThinkingStartEvent | ThinkingContentEvent | ThinkingEndEvent | ToolPlanningEvent;
 
 // ============================================================================
 // 创建带工具的 LLM 实例
@@ -60,7 +66,7 @@ export const llmCall = async (
 
     // 发送思考开始事件
     config?.writer?.({
-        type: "thinking_start",
+        type: THINKING_START,
         content: "正在分析请求...",
     });
 
@@ -81,7 +87,7 @@ export const llmCall = async (
             ? response.content
             : JSON.stringify(response.content);
         config?.writer?.({
-            type: "thinking_content",
+            type: THINKING_CONTENT,
             content,
         });
     }
@@ -89,7 +95,7 @@ export const llmCall = async (
     // 发送工具调用计划
     if (response.tool_calls && response.tool_calls.length > 0) {
         config?.writer?.({
-            type: "tool_planning",
+            type: TOOL_PLANNING,
             tools: response.tool_calls.map(tc => ({
                 name: tc.name,
                 args: tc.args,
@@ -99,7 +105,7 @@ export const llmCall = async (
 
     // 发送思考结束事件
     config?.writer?.({
-        type: "thinking_end",
+        type: THINKING_END,
         content: response.tool_calls?.length ? "准备执行工具..." : "思考完成",
     });
 

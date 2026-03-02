@@ -2,6 +2,13 @@ import {AIMessage, ToolMessage} from "@langchain/core/messages";
 import {primaryAgentTools} from "../tools";
 import {AgentState} from "../state";
 import {LangGraphRunnableConfig} from "@langchain/langgraph";
+import {
+    TOOL_EXECUTION_START,
+    TOOL_START,
+    TOOL_END,
+    TOOL_ERROR,
+    TOOL_EXECUTION_END,
+} from "../events";
 
 // 导出 AgentState 类型供其他模块使用
 export type {AgentState};
@@ -49,7 +56,7 @@ export const toolNode = async (
     // 发送工具执行开始事件
     if (toolCalls.length > 0) {
         config?.writer?.({
-            type: "tool_execution_start",
+            type: TOOL_EXECUTION_START,
             count: toolCalls.length,
             tools: toolCalls.map((tc: any) => ({name: tc.name, args: tc.args})),
         });
@@ -70,7 +77,7 @@ export const toolNode = async (
 
         // 发送单个工具开始执行事件
         config?.writer?.({
-            type: "tool_start",
+            type: TOOL_START,
             name: toolCall.name,
             args: toolCall.args,
             index: i,
@@ -80,12 +87,12 @@ export const toolNode = async (
         try {
             // 按官方方式：直接传入 toolCall 对象
             const observation = await (tool as any).invoke(toolCall);
-            console.warn(`Tool observation "${toolCall.name}":`, observation.content || JSON.stringify(observation));
+            console.info(`Tool observation "${toolCall.name}":`, observation.content || observation);
             result.push(observation);
 
             // 发送工具执行完成事件
             config?.writer?.({
-                type: "tool_end",
+                type: TOOL_END,
                 name: toolCall.name,
                 output: observation.content || observation,
                 index: i,
@@ -101,7 +108,7 @@ export const toolNode = async (
 
             // 发送工具执行错误事件
             config?.writer?.({
-                type: "tool_error",
+                type: TOOL_ERROR,
                 name: toolCall.name,
                 error: errorMsg,
                 index: i,
@@ -113,7 +120,7 @@ export const toolNode = async (
     // 发送所有工具执行完成事件
     if (toolCalls.length > 0) {
         config?.writer?.({
-            type: "tool_execution_end",
+            type: TOOL_EXECUTION_END,
             count: toolCalls.length,
         });
     }

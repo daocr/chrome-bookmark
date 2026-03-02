@@ -2,6 +2,13 @@ import {tool} from "@langchain/core/tools";
 import {z} from "zod";
 import {SubAgentFactory} from "../agents/sub-agent-factory";
 import {LangGraphRunnableConfig} from "@langchain/langgraph";
+import {
+    SUBAGENT_START,
+    SUBAGENT_THINKING,
+    SUBAGENT_CUSTOM,
+    SUBAGENT_END,
+    SUBAGENT_ERROR,
+} from "../events";
 
 // 使用 Vite ?raw 导入外部的 txt 描述文件
 import TASK_DESCRIPTION_TEMPLATE from "../agents/prompt/subagent_task.txt?raw";
@@ -17,7 +24,7 @@ export const callSubagent = tool(
 
         // 发送子代理开始事件
         config?.writer?.({
-            type: "subagent_start",
+            type: SUBAGENT_START,
             subagent_type,
             description,
             task_id: task_id || `task_${Date.now()}`,
@@ -29,7 +36,7 @@ export const callSubagent = tool(
 
             // 3. 流式调用子代理，并发送进度事件
             config?.writer?.({
-                type: "subagent_thinking",
+                type: SUBAGENT_THINKING,
                 subagent_type,
                 content: `正在执行任务: ${description}`,
             });
@@ -59,7 +66,7 @@ export const callSubagent = tool(
                     if (mode === "custom") {
                         // 转发自定义事件（包含思考过程等重要信息）
                         config?.writer?.({
-                            type: "subagent_custom",
+                            type: SUBAGENT_CUSTOM,
                             subagent_type,
                             event: data,
                         });
@@ -90,7 +97,7 @@ export const callSubagent = tool(
 
             // 发送子代理完成事件
             config?.writer?.({
-                type: "subagent_end",
+                type: SUBAGENT_END,
                 subagent_type,
                 result: responseContent,
             });
@@ -109,7 +116,7 @@ export const callSubagent = tool(
 
             // 发送子代理错误事件
             config?.writer?.({
-                type: "subagent_error",
+                type: SUBAGENT_ERROR,
                 subagent_type,
                 error: error instanceof Error ? error.message : String(error),
             });
