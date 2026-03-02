@@ -32,7 +32,10 @@ export function ChatArea({ messages, isLoading }: ChatAreaProps) {
                     {/* Messages */}
                     {messages.map((msg, index) => (
                         <div key={index}>
-                            <ChatMessage msg={msg} />
+                            <ChatMessage
+                                msg={msg}
+                                showCursor={isLoading && index === messages.length - 1 && msg.role === "assistant"}
+                            />
                         </div>
                     ))}
 

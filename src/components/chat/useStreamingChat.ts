@@ -79,6 +79,9 @@ export function useStreamingChat() {
         // 当前活动的子代理调用 ID（用于更新正确的步骤）
         let currentSubagentCallId: string | null = null;
 
+        // 当前累积的内容（用于打字机效果）
+        let accumulatedContent = "";
+
         // 实时更新消息的函数
         const updateCurrentMessage = (updates: Partial<StreamingMessage>) => {
             setMessages((prev) => {
@@ -287,9 +290,9 @@ export function useStreamingChat() {
                         break;
 
                     case "done":
-                        // 最终完成，更新内容
+                        // 最终完成，更新内容（使用累积的内容或事件消息）
                         updateCurrentMessage({
-                            content: event.message,
+                            content: accumulatedContent || event.message,
                             thinking: [...thinkingSteps],
                             subagentEvents: [...subagentEvents]
                         });
@@ -303,9 +306,9 @@ export function useStreamingChat() {
                         break;
 
                     case "token":
-                        // 实时显示 token 流
-                        const currentContent = messages[messages.length - 1]?.content || "";
-                        updateCurrentMessage({ content: currentContent + event.content });
+                        // 实时显示 token 流（使用本地变量避免异步 state 更新问题）
+                        accumulatedContent += event.content;
+                        updateCurrentMessage({ content: accumulatedContent });
                         break;
                 }
             }

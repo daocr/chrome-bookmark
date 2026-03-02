@@ -40,6 +40,7 @@ export class LLMFactory {
             model: mergedConfig.model,
             temperature: mergedConfig.temperature,
             apiKey: mergedConfig.apiKey,
+            streaming: true,
             configuration: {
                 baseURL: mergedConfig.baseURL,
             },
@@ -58,6 +59,7 @@ export class LLMFactory {
             model: mergedConfig.model,
             temperature: mergedConfig.temperature,
             apiKey: mergedConfig.apiKey,
+            streaming: true,
             configuration: {
                 baseURL: mergedConfig.baseURL,
             },

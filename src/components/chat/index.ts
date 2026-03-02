@@ -1,5 +1,4 @@
 export type { ThinkingStep, Message } from "./types";
-export { useChatForm } from "./useChatForm";
 export type { StreamingMessage, SubagentEvent } from "./useStreamingChat";
 export { useStreamingChat } from "./useStreamingChat";
 export { useTextareaHeight } from "./useTextareaHeight";

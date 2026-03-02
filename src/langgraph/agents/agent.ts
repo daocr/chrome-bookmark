@@ -92,18 +92,6 @@ export async function invokeAgent(input: string) {
     return result;
 }
 
-/**
- * 打印 Agent 执行结果
- *
- * @param result - Agent 返回的结果
- */
-export function printResult(result: typeof AgentState.State) {
-    for (const message of result.messages) {
-        const msg = message as any;
-        console.log(`[${msg.type}]: ${msg.text || msg.content || JSON.stringify(msg)}`);
-    }
-}
-
 // ============================================================================
 // 流式 Agent 调用
 // ============================================================================
@@ -218,7 +206,7 @@ export async function* streamAgentWithSubgraphsSimple(
             },
             {
                 recursionLimit: 100,
-                streamMode: ["updates", "custom"],
+                streamMode: ["updates", "custom", "messages"],
                 subgraphs: true,
             }
         );
@@ -233,6 +221,20 @@ export async function* streamAgentWithSubgraphsSimple(
                 // 处理自定义事件
                 if (mode === "custom") {
                     yield* handleCustomEventGenerator(data);
+                }
+                // 处理 messages 模式（LLM token 流）
+                else if (mode === "messages") {
+                    // data 是 [messageChunk, metadata] 元组
+                    if (Array.isArray(data) && data.length === 2) {
+                        const [messageChunk, metadata] = data;
+                        if (messageChunk?.content) {
+                            yield {
+                                type: "token",
+                                content: messageChunk.content,
+                                metadata,
+                            };
+                        }
+                    }
                 }
                 // 处理更新事件
                 else if (mode === "updates") {

@@ -80,7 +80,7 @@ export const toolNode = async (
         try {
             // 按官方方式：直接传入 toolCall 对象
             const observation = await (tool as any).invoke(toolCall);
-            console.warn(`Tool observation "${toolCall.name}":`, observation.content || JSON.stringify(observation));
+            console.info(`Tool observation "${toolCall.name}":`, observation.content || JSON.stringify(observation));
             result.push(observation);
 
             // 发送工具执行完成事件

@@ -4,6 +4,7 @@ import { ThinkingAccordion } from "./ThinkingAccordion";
 
 interface ChatMessageProps {
     msg: Message | { role: "user" | "assistant"; content: string; timestamp?: string; thinking?: any[]; subagentEvents?: SubagentEvent[] };
+    showCursor?: boolean;
 }
 
 function getActionClass(type: string) {
@@ -36,7 +37,7 @@ function getSubagentColor(type: SubagentEvent["type"]) {
     }
 }
 
-export function ChatMessage({ msg }: ChatMessageProps) {
+export function ChatMessage({ msg, showCursor }: ChatMessageProps) {
     if (msg.role === "user") {
         return (
             <div className="flex items-end gap-3 justify-end group">
@@ -144,6 +145,9 @@ export function ChatMessage({ msg }: ChatMessageProps) {
                 <div className="p-3.5 rounded-2xl rounded-tl-sm bg-slate-200 dark:bg-surface-dark text-slate-900 dark:text-slate-100 shadow-sm border border-transparent dark:border-slate-700">
                     <p className="text-sm font-normal leading-relaxed whitespace-pre-wrap break-words">
                         {msg.content}
+                        {showCursor && (
+                            <span className="inline-block ml-0.5 w-1.5 h-4 bg-slate-900 dark:bg-slate-100 align-middle animate-pulse" />
+                        )}
                     </p>
 
                     {/* Action Chips */}
