@@ -1,12 +1,13 @@
 import {tool} from "@langchain/core/tools";
 import {z} from "zod";
 import {SubAgentFactory} from "../agents/sub-agent-factory";
+import {LangGraphRunnableConfig} from "@langchain/langgraph";
 
 // 使用 Vite ?raw 导入外部的 txt 描述文件
 import TASK_DESCRIPTION_TEMPLATE from "../agents/prompt/subagent_task.txt?raw";
 
 export const callSubagent = tool(
-    async (params, _config) => {
+    async (params, config: LangGraphRunnableConfig) => {
         // 1. 实际读取并解构 params
         const {subagent_type, description, prompt, task_id} = params;
 
@@ -14,21 +15,85 @@ export const callSubagent = tool(
         console.log(`[Main Agent] 任务描述: ${description}`);
         console.log(`[Main Agent] Prompt: ${prompt}`);
 
+        // 发送子代理开始事件
+        config?.writer?.({
+            type: "subagent_start",
+            subagent_type,
+            description,
+            task_id: task_id || `task_${Date.now()}`,
+        });
+
         try {
             // 2. 使用 SubAgentFactory 创建对应类型的代理
             const agent = await SubAgentFactory.createByType(subagent_type);
 
-            // 3. 调用子代理执行任务
-            const result = await agent.invoke({
-                messages: [{
-                    role: "user",
-                    content: prompt
-                }]
+            // 3. 流式调用子代理，并发送进度事件
+            config?.writer?.({
+                type: "subagent_thinking",
+                subagent_type,
+                content: `正在执行任务: ${description}`,
             });
 
+            // 使用 stream 模式获取子代理的执行进度和最终结果
+            const stream = await agent.stream(
+                {
+                    messages: [{
+                        role: "user",
+                        content: prompt
+                    }]
+                },
+                {
+                    streamMode: ["updates", "custom"],
+                }
+            );
+
+            let subagentResult: any = null;
+            let lastUpdate: any = null;
+
+            // 处理子代理的流式输出
+            for await (const chunk of stream) {
+                // 检查是否是 [mode, data] 元组
+                if (Array.isArray(chunk) && chunk.length === 2) {
+                    const [mode, data] = chunk;
+
+                    if (mode === "custom") {
+                        // 转发自定义事件（包含思考过程等重要信息）
+                        config?.writer?.({
+                            type: "subagent_custom",
+                            subagent_type,
+                            event: data,
+                        });
+                    } else if (mode === "updates") {
+                        // 保存最后一次的 updates，它包含最终状态
+                        lastUpdate = data;
+                    }
+                }
+            }
+
+            // 从最后的 updates 中获取最终结果
+            if (lastUpdate) {
+                // 合并所有节点的更新到最终状态
+                subagentResult = { messages: [] };
+                for (const nodeName in lastUpdate) {
+                    const nodeData = lastUpdate[nodeName];
+                    if (nodeData.messages) {
+                        subagentResult.messages.push(...nodeData.messages);
+                    }
+                }
+            } else {
+                throw new Error("未能从子代理流中获取最终结果");
+            }
+
             // 4. 提取子代理的最终回复
-            const lastMessage = result.messages?.[result.messages.length - 1];
-            const responseContent = lastMessage?.content || JSON.stringify(result);
+            const lastMessage = subagentResult.messages?.[subagentResult.messages.length - 1];
+            const responseContent = lastMessage?.content || JSON.stringify(subagentResult);
+
+            // 发送子代理完成事件
+            config?.writer?.({
+                type: "subagent_end",
+                subagent_type,
+                result: responseContent,
+            });
 
             // 5. 返回子代理的执行结果给主 Agent
             return JSON.stringify({
@@ -41,6 +106,14 @@ export const callSubagent = tool(
             });
         } catch (error) {
             console.error(`[Main Agent] 子代理 ${subagent_type} 执行失败:`, error);
+
+            // 发送子代理错误事件
+            config?.writer?.({
+                type: "subagent_error",
+                subagent_type,
+                error: error instanceof Error ? error.message : String(error),
+            });
+
             return JSON.stringify({
                 success: false,
                 status: "SUBAGENT_FAILED",
