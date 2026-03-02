@@ -22,8 +22,6 @@ import {
     SUBAGENT_CUSTOM,
     SUBAGENT_END,
     SUBAGENT_ERROR,
-    SUBGRAPH_OUTPUT,
-    SUBGRAPH_NODE,
     TOKEN,
     DONE,
     ERROR,
@@ -53,65 +51,47 @@ export const agent = new StateGraph(AgentState)
     .addEdge("toolNode", "llmCall")
     .compile();
 
-/**
- * 调用 Agent 的便捷函数
- *
- * @param input - 用户输入消息
- * @returns Agent 执行结果
- */
-export async function invokeAgent(input: string) {
-    console.log("[Agent] Starting agent invocation with input:", input);
-
-    // 添加新的用户消息到历史记录
-    messageHistory.push(new HumanMessage(input));
-
-    // 只保留最近30条消息
-    if (messageHistory.length > MAX_MESSAGES) {
-        messageHistory = messageHistory.slice(-MAX_MESSAGES);
-    }
-
-    const result = await agent.invoke({
-        messages: messageHistory,
-        count: 0,
-    }, {recursionLimit: 100});
-
-    // 更新消息历史（包含 Agent 的响应）
-    messageHistory = result.messages.slice(-MAX_MESSAGES);
-
-    console.log("[Agent] Agent invocation completed");
-    console.log("[Agent] Result:", result);
-
-    return result;
-}
-
-// ============================================================================
-// 流式 Agent 调用
-// ============================================================================
-
-
 
 function* handleCustomEventGenerator(data: any): Generator<StreamEvent> {
     // 思考事件（来自 model-node）
     if (data.type === THINKING_START) {
-        yield { type: THINKING_START, content: data.content || "开始思考..." };
+        yield {type: THINKING_START, content: data.content || "开始思考..."};
     } else if (data.type === THINKING_CONTENT) {
-        yield { type: THINKING_CONTENT, content: data.content || "" };
+        yield {type: THINKING_CONTENT, content: data.content || ""};
     } else if (data.type === THINKING_END) {
-        yield { type: THINKING_END, content: data.content || "思考完成" };
+        yield {type: THINKING_END, content: data.content || "思考完成"};
     } else if (data.type === TOOL_PLANNING) {
-        yield { type: TOOL_PLANNING, tools: data.tools || [] };
+        yield {type: TOOL_PLANNING, tools: data.tools || []};
     }
     // 工具执行事件（来自 tool-node）
     else if (data.type === TOOL_EXECUTION_START) {
-        yield { type: TOOL_EXECUTION_START, count: data.count || 0, tools: data.tools || [] };
+        yield {type: TOOL_EXECUTION_START, count: data.count || 0, tools: data.tools || []};
     } else if (data.type === TOOL_START) {
-        yield { type: TOOL_START, name: data.name || "", args: data.args, index: data.index || 0, total: data.total || 1 };
+        yield {
+            type: TOOL_START,
+            name: data.name || "",
+            args: data.args,
+            index: data.index || 0,
+            total: data.total || 1
+        };
     } else if (data.type === TOOL_END) {
-        yield { type: TOOL_END, name: data.name || "", output: data.output, index: data.index || 0, total: data.total || 1 };
+        yield {
+            type: TOOL_END,
+            name: data.name || "",
+            output: data.output,
+            index: data.index || 0,
+            total: data.total || 1
+        };
     } else if (data.type === TOOL_ERROR) {
-        yield { type: TOOL_ERROR, name: data.name || "", error: data.error || "", index: data.index || 0, total: data.total || 1 };
+        yield {
+            type: TOOL_ERROR,
+            name: data.name || "",
+            error: data.error || "",
+            index: data.index || 0,
+            total: data.total || 1
+        };
     } else if (data.type === TOOL_EXECUTION_END) {
-        yield { type: TOOL_EXECUTION_END, count: data.count || 0 };
+        yield {type: TOOL_EXECUTION_END, count: data.count || 0};
     }
     // 子代理事件（来自 call_subagent 工具）
     else if (data.type === SUBAGENT_START) {
@@ -122,15 +102,15 @@ function* handleCustomEventGenerator(data: any): Generator<StreamEvent> {
             task_id: data.task_id || ""
         };
     } else if (data.type === SUBAGENT_THINKING) {
-        yield { type: SUBAGENT_THINKING, subagent_type: data.subagent_type || "", content: data.content || "" };
+        yield {type: SUBAGENT_THINKING, subagent_type: data.subagent_type || "", content: data.content || ""};
     } else if (data.type === SUBAGENT_UPDATE) {
-        yield { type: SUBAGENT_UPDATE, subagent_type: data.subagent_type || "", data: data.data };
+        yield {type: SUBAGENT_UPDATE, subagent_type: data.subagent_type || "", data: data.data};
     } else if (data.type === SUBAGENT_CUSTOM) {
-        yield { type: SUBAGENT_CUSTOM, subagent_type: data.subagent_type || "", event: data.event };
+        yield {type: SUBAGENT_CUSTOM, subagent_type: data.subagent_type || "", event: data.event};
     } else if (data.type === SUBAGENT_END) {
-        yield { type: SUBAGENT_END, subagent_type: data.subagent_type || "", result: data.result || "" };
+        yield {type: SUBAGENT_END, subagent_type: data.subagent_type || "", result: data.result || ""};
     } else if (data.type === SUBAGENT_ERROR) {
-        yield { type: SUBAGENT_ERROR, subagent_type: data.subagent_type || "", error: data.error || "" };
+        yield {type: SUBAGENT_ERROR, subagent_type: data.subagent_type || "", error: data.error || ""};
     }
 }
 
@@ -142,7 +122,7 @@ function* handleUpdateEventGenerator(event: any): Generator<StreamEvent> {
             const lastMessage = messages[messages.length - 1] as AIMessage;
             if (lastMessage.tool_calls && lastMessage.tool_calls.length > 0) {
                 for (const toolCall of lastMessage.tool_calls) {
-                    yield { type: TOOL_CALL, tool: toolCall.name, input: toolCall.args };
+                    yield {type: TOOL_CALL, tool: toolCall.name, input: toolCall.args};
                 }
             }
         }
@@ -152,7 +132,7 @@ function* handleUpdateEventGenerator(event: any): Generator<StreamEvent> {
         if (messages && messages.length > 0) {
             for (const msg of messages) {
                 if (msg.name) {
-                    yield { type: TOOL_RESULT, tool: msg.name, output: msg.content };
+                    yield {type: TOOL_RESULT, tool: msg.name, output: msg.content};
                 }
             }
         }
@@ -163,7 +143,7 @@ function* handleUpdateEventGenerator(event: any): Generator<StreamEvent> {
 // 支持子图输出的流式调用
 // ============================================================================
 /**
- * AsyncGenerator 版本的子图流式调用
+ * AsyncGenerator 版本的流式调用
  *
  * @param input - 用户输入消息
  * @returns 异步生成器，产出流式事件
@@ -171,8 +151,8 @@ function* handleUpdateEventGenerator(event: any): Generator<StreamEvent> {
  * @example
  * ```ts
  * for await (const event of streamAgentWithSubgraphsSimple("搜索书签")) {
- *     if (event.type === "subgraph_output") {
- *         console.log("子图:", event.namespace, event.data);
+ *     if (event.type === "token") {
+ *         console.log("Token:", event.content);
  *     }
  * }
  * ```
@@ -180,7 +160,7 @@ function* handleUpdateEventGenerator(event: any): Generator<StreamEvent> {
 export async function* streamAgentWithSubgraphsSimple(
     input: string
 ): AsyncGenerator<StreamEvent, typeof AgentState.State | null, unknown> {
-    console.log("[Agent] Starting streaming with subgraphs (generator) for input:", input);
+    console.log("[Agent] Starting streaming (generator) for input:", input);
 
     // 添加新的用户消息到历史记录
     messageHistory.push(new HumanMessage(input));
@@ -199,62 +179,50 @@ export async function* streamAgentWithSubgraphsSimple(
             {
                 recursionLimit: 100,
                 streamMode: ["updates", "custom", "messages"],
-                subgraphs: true,
             }
         );
 
         let lastMainUpdate: any = null;
 
         for await (const chunk of stream) {
-            // 当使用 subgraphs: true 和多个 streamMode 时，chunk 是 [namespace, mode, data] 三元组
-            if (Array.isArray(chunk) && chunk.length === 3) {
-                const [namespace, mode, data] = chunk as [any, string, any];
+            console.log("🔍 [DEBUG] chunk:", JSON.stringify(chunk, null, 2));
+            // 当使用多个 streamMode 时，chunk 是 (mode, data) 二元组
+            if (Array.isArray(chunk) && chunk.length === 2) {
+                const [mode, data] = chunk as [string, any];
+                console.log(`🔍 [DEBUG] mode: ${mode}`);
 
                 // 处理自定义事件
                 if (mode === "custom") {
+                    console.log("🎨 [EVENT] custom:", data.type);
                     yield* handleCustomEventGenerator(data);
                 }
                 // 处理 messages 模式（LLM token 流）
                 else if (mode === "messages") {
-                    // data 是 [messageChunk, metadata] 元组
-                    if (Array.isArray(data) && data.length === 2) {
+                    console.log("📝 [EVENT] messages mode");
+                    if (Array.isArray(data)) {
+                        // 解构赋值，兼容不同长度的数组
                         const [messageChunk, metadata] = data;
+
+                        // 如果非要调试，只打印安全的 content
+                        // console.log("🔍 [DEBUG] token:", messageChunk?.content);
+
                         if (messageChunk?.content) {
                             yield {
                                 type: TOKEN,
                                 content: messageChunk.content,
-                                metadata,
+                                metadata: metadata || {},
                             };
                         }
                     }
                 }
                 // 处理更新事件
                 else if (mode === "updates") {
-                    if (Array.isArray(namespace) && namespace.length === 0) {
-                        // 主图的输出 - 保存最后一次更新
-                        lastMainUpdate = data;
-                        yield* handleUpdateEventGenerator(data);
-                    } else {
-                        // 子图的输出
-                        yield {
-                            type: SUBGRAPH_OUTPUT,
-                            namespace,
-                            data,
-                        };
-
-                        // 处理子图中的每个节点
-                        for (const [node, nodeData] of Object.entries(data)) {
-                            yield {
-                                type: SUBGRAPH_NODE,
-                                namespace,
-                                node,
-                                data: nodeData,
-                            };
-                        }
-                    }
+                    console.log("🔄 [EVENT] updates:", Object.keys(data));
+                    lastMainUpdate = data;
+                    yield* handleUpdateEventGenerator(data);
                 }
             }
-            // 兼容旧版本（没有 subgraphs 的情况）
+            // 兼容旧版本（单一 streamMode 的情况）
             else if (typeof chunk === "object") {
                 lastMainUpdate = chunk;
                 yield* handleUpdateEventGenerator(chunk);
@@ -262,7 +230,7 @@ export async function* streamAgentWithSubgraphsSimple(
         }
 
         // 从最后的更新中构建完整结果
-        let fullResult: any = { messages: [] };
+        let fullResult: any = {messages: []};
         if (lastMainUpdate) {
             // 合并所有节点的更新到最终状态
             for (const nodeName in lastMainUpdate) {
@@ -280,15 +248,15 @@ export async function* streamAgentWithSubgraphsSimple(
             ? lastMessage.content
             : JSON.stringify(lastMessage?.content);
 
-        yield { type: DONE, message: finalContent };
+        yield {type: DONE, message: finalContent};
 
         messageHistory = fullResult.messages.slice(-MAX_MESSAGES);
-        console.log("[Agent] Streaming with subgraphs completed");
+        console.log("[Agent] Streaming completed");
         return fullResult;
 
     } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        yield { type: ERROR, error: errorMsg };
+        yield {type: ERROR, error: errorMsg};
         throw error;
     }
 }

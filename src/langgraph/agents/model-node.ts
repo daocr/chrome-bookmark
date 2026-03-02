@@ -14,8 +14,8 @@ import {
     TOOL_PLANNING,
 } from "../events";
 
-// 使用 Vite ?raw 导入主代理系统提示词
-import PRIMARY_AGENT_PROMPT from "./prompt/primary-agent.txt?raw";
+// 导入主代理系统提示词（兼容 Node 和浏览器环境）
+import {PRIMARY_AGENT_PROMPT} from "./prompt/primary-agent";
 
 // 导出 AgentState 类型供其他模块使用
 export type {AgentState};
@@ -75,8 +75,8 @@ export const llmCall = async (
 
     const response = await modelWithTools.invoke([
         new SystemMessage(PRIMARY_AGENT_PROMPT),
-        ...state.messages,
-    ]);
+        ...state.messages
+    ],config);
 
     console.log("[llmCall] LLM response received:", response);
     console.log("[llmCall] Tool calls:", response.tool_calls);

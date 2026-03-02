@@ -10,8 +10,8 @@ import {
     SUBAGENT_ERROR,
 } from "../events";
 
-// 使用 Vite ?raw 导入外部的 txt 描述文件
-import TASK_DESCRIPTION_TEMPLATE from "../agents/prompt/subagent_task.txt?raw";
+// 导入任务描述模板（兼容 Node 和浏览器环境）
+import {SUBAGENT_TASK_PROMPT} from "../agents/prompt/subagent_task";
 
 export const callSubagent = tool(
     async (params, config: LangGraphRunnableConfig) => {
@@ -131,7 +131,7 @@ export const callSubagent = tool(
     },
     {
         name: "call_subagent",
-        description: TASK_DESCRIPTION_TEMPLATE.replace(
+        description: SUBAGENT_TASK_PROMPT.replace(
             "{agents}",
             `- explore: 负责纯只读的书签检索、目录树读取。\n- analyze: 负责重度推理与书签分类聚类。\n- execute: 唯一拥有物理修改权限的代理，负责执行增删改移。`
         ),

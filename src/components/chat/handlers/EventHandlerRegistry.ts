@@ -16,8 +16,6 @@ import { SubagentEndHandler } from "./SubagentEndHandler";
 import { SubagentErrorHandler } from "./SubagentErrorHandler";
 import { SubagentUpdateHandler } from "./SubagentUpdateHandler";
 import { SubagentCustomHandler } from "./SubagentCustomHandler";
-import { SubgraphOutputHandler } from "./SubgraphOutputHandler";
-import { SubgraphNodeHandler } from "./SubgraphNodeHandler";
 import { DoneHandler } from "./DoneHandler";
 import { ErrorHandler } from "./ErrorHandler";
 import { TokenHandler } from "./TokenHandler";
@@ -60,10 +58,6 @@ export class EventHandlerRegistry {
         this.register(new SubagentErrorHandler());
         this.register(new SubagentUpdateHandler());
         this.register(new SubagentCustomHandler());
-
-        // 子图事件
-        this.register(new SubgraphOutputHandler());
-        this.register(new SubgraphNodeHandler());
 
         // 通用事件
         this.register(new DoneHandler());

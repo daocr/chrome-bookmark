@@ -4,12 +4,12 @@ import {LLMFactory} from "./llm-factory";
 import {readOnlyTools, executionTools} from "../tools/bookmarks";
 
 // ============================================================================
-// 提示词模板加载（使用 Vite ?raw 导入）
+// 提示词模板加载（兼容 Node 和浏览器环境）
 // ============================================================================
 
-import EXPLORE_PROMPT from "./prompt/sub-agent-explore.txt?raw";
-import ANALYZE_PROMPT from "./prompt/sub-agent-analyze.txt?raw";
-import EXECUTE_PROMPT from "./prompt/sub-agent-execution.txt?raw";
+import {SUB_AGENT_EXPLORE_PROMPT} from "./prompt/sub-agent-explore";
+import {SUB_AGENT_ANALYZE_PROMPT} from "./prompt/sub-agent-analyze";
+import {SUB_AGENT_EXECUTION_PROMPT} from "./prompt/sub-agent-execution";
 
 // ============================================================================
 // 类型定义
@@ -101,7 +101,7 @@ export class SubAgentFactory {
     static async createExploreAgent(options?: Partial<CreateSubAgentOptions>) {
         return this.create({
             tools: readOnlyTools,
-            systemPrompt: EXPLORE_PROMPT,
+            systemPrompt: SUB_AGENT_EXPLORE_PROMPT,
             name: "explore",
             llmConfig: {temperature: 0.3}, // 低温度以获得更精确的检索结果
             ...options
@@ -120,7 +120,7 @@ export class SubAgentFactory {
     static async createAnalyzeAgent(options?: Partial<CreateSubAgentOptions>) {
         return this.create({
             tools: [], // 分析代理不需要工具，只进行推理
-            systemPrompt: ANALYZE_PROMPT,
+            systemPrompt: SUB_AGENT_ANALYZE_PROMPT,
             name: "analyze",
             llmConfig: {temperature: 0.5}, // 中等温度以平衡创造性和准确性
             ...options
@@ -139,7 +139,7 @@ export class SubAgentFactory {
     static async createExecuteAgent(options?: Partial<CreateSubAgentOptions>) {
         return this.create({
             tools: executionTools,
-            systemPrompt: EXECUTE_PROMPT,
+            systemPrompt: SUB_AGENT_EXECUTION_PROMPT,
             name: "execute",
             llmConfig: {temperature: 0.2}, // 极低温度以确保执行精确性
             ...options
