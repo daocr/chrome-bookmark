@@ -90,27 +90,30 @@ export function SettingsDialog({ open, onClose, onSave }: SettingsDialogProps) {
                                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Model Provider</h3>
                             </div>
 
-                            {/* Model ID Select */}
+                            {/* Model ID Input with Dropdown */}
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300" htmlFor="model-id">Model ID</label>
                                 <div className="relative">
-                                    <select
-                                        className="w-full rounded-xl border-slate-300 dark:border-slate-700 bg-white dark:bg-surface-dark text-slate-900 dark:text-white text-sm py-2.5 pl-3 pr-10 focus:ring-primary focus:border-primary shadow-sm appearance-none cursor-pointer"
+                                    <input
+                                        list="model-options"
+                                        className="w-full rounded-xl border-slate-300 dark:border-slate-700 bg-white dark:bg-surface-dark text-slate-900 dark:text-white text-sm py-2.5 pl-3 pr-10 focus:ring-primary focus:border-primary shadow-sm cursor-pointer"
                                         id="model-id"
                                         value={config.model}
                                         onChange={(e) => setConfig({ ...config, model: e.target.value })}
-                                    >
+                                        placeholder="Select or enter model ID"
+                                    />
+                                    <datalist id="model-options">
                                         {MODEL_OPTIONS.map((option) => (
                                             <option key={option.value} value={option.value}>
                                                 {option.label}
                                             </option>
                                         ))}
-                                    </select>
+                                    </datalist>
                                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
                                         <span className="material-symbols-outlined text-[20px]">expand_more</span>
                                     </div>
                                 </div>
-                                <p className="text-[11px] text-slate-500">Select the LLM to power your bookmark reasoning.</p>
+                                <p className="text-[11px] text-slate-500">Select from the list or type a custom model ID.</p>
                             </div>
 
                             {/* Base URL Input */}
