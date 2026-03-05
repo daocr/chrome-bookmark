@@ -1,7 +1,13 @@
 import {createAgent} from "langchain";
 import {StructuredTool} from "@langchain/core/tools";
+import {z} from "zod";
 import {LLMFactory} from "./llm-factory";
-import {readOnlyTools, executionTools} from "../tools/bookmarks";
+import {readOnlyTools, executionTools} from "../tools/bookmark-groups";
+import {
+    exploreContextSchema,
+    analyzeContextSchema,
+    executeContextSchema
+} from "../context";
 
 // ============================================================================
 // 提示词模板加载（兼容 Node 和浏览器环境）
@@ -45,6 +51,12 @@ export interface CreateSubAgentOptions {
         model?: string;
         temperature?: number;
     };
+
+    /**
+     * 上下文 Schema（可选）
+     * 定义 Agent 运行时需要的上下文数据结构
+     */
+    contextSchema?: z.ZodObject<z.ZodRawShape>;
 }
 
 // ============================================================================
@@ -73,7 +85,8 @@ export class SubAgentFactory {
             middleware = [],
             systemPrompt,
             name,
-            llmConfig
+            llmConfig,
+            contextSchema
         } = options;
 
         // 创建全新的 LLM 实例（不使用单例）
@@ -86,6 +99,7 @@ export class SubAgentFactory {
             systemPrompt,
             middleware,
             name,
+            contextSchema,
         });
     }
 
@@ -104,6 +118,7 @@ export class SubAgentFactory {
             systemPrompt: SUB_AGENT_EXPLORE_PROMPT,
             name: "explore",
             llmConfig: {temperature: 0.3}, // 低温度以获得更精确的检索结果
+            contextSchema: exploreContextSchema,
             ...options
         });
     }
@@ -123,6 +138,7 @@ export class SubAgentFactory {
             systemPrompt: SUB_AGENT_ANALYZE_PROMPT,
             name: "analyze",
             llmConfig: {temperature: 0.5}, // 中等温度以平衡创造性和准确性
+            contextSchema: analyzeContextSchema,
             ...options
         });
     }
@@ -142,6 +158,7 @@ export class SubAgentFactory {
             systemPrompt: SUB_AGENT_EXECUTION_PROMPT,
             name: "execute",
             llmConfig: {temperature: 0.2}, // 极低温度以确保执行精确性
+            contextSchema: executeContextSchema,
             ...options
         });
     }

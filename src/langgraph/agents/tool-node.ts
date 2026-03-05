@@ -23,9 +23,10 @@ export type {AgentState};
  * - write_todo: 写入待办事项
  * - read_todo: 读取待办事项
  */
-const toolsByName = Object.fromEntries(
-    primaryAgentTools.map((tool) => [tool.name, tool])
-);
+const toolsByName: Record<string, typeof primaryAgentTools[number]> = {};
+for (const tool of primaryAgentTools) {
+    toolsByName[tool.name] = tool;
+}
 
 /**
  * Tool Node - 执行 LLM 返回的工具调用
@@ -50,7 +51,7 @@ export const toolNode = async (
         };
     }
 
-    const result = [];
+    const result: ToolMessage[] = [];
     const toolCalls = lastMessage.tool_calls ?? [];
 
     // 发送工具执行开始事件
@@ -85,8 +86,8 @@ export const toolNode = async (
         });
 
         try {
-            // 按官方方式：直接传入 toolCall 对象
-            const observation = await (tool as any).invoke(toolCall);
+            // Official pattern: pass full toolCall, tool should return ToolMessage
+            const observation = await (tool as any).invoke(toolCall, config);
             console.info(`Tool observation "${toolCall.name}":`, observation.content || observation);
             result.push(observation);
 
@@ -100,6 +101,9 @@ export const toolNode = async (
             });
         } catch (error) {
             console.error(`Error invoking tool "${toolCall.name}":`, error);
+            if (error instanceof Error && error.stack) {
+                console.error(`Stack trace:\n${error.stack}`);
+            }
             const errorMsg = `Error: ${error instanceof Error ? error.message : String(error)}`;
             result.push(new ToolMessage({
                 content: errorMsg,

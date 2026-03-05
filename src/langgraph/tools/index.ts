@@ -8,19 +8,27 @@
 // 书签操作工具 (供 SubAgent 使用)
 // ============================================================================
 
+// 单个工具导出 - Read-Only Tools
 export {
-    getFolderStructure,
+    getAllBrowserFolders,
     searchBookmarks,
-    getBookmarkChildren,
+    getBookmarkChildren
+} from "./bookmark-read-only-tools";
+
+// 单个工具导出 - Write Tools
+export {
     createBookmarksBatch,
     moveBookmarksBatch,
     removeBookmarksBatch,
-    removeBookmarkTreeDANGER,
-    undoLastAction,
+    removeBookmarkTreeDANGER
+} from "./bookmark-write-tools";
+
+// 工具分组导出
+export {
     readOnlyTools,
     executionTools,
     bookmarkTools
-} from "./bookmarks";
+} from "./bookmark-groups";
 
 // ============================================================================
 // 主代理工具 (供 Primary Agent 使用)

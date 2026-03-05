@@ -185,20 +185,20 @@ export async function* streamAgentWithSubgraphsSimple(
         let lastMainUpdate: any = null;
 
         for await (const chunk of stream) {
-            console.log("🔍 [DEBUG] chunk:", JSON.stringify(chunk, null, 2));
+            // console.log("🔍 [DEBUG] chunk:", JSON.stringify(chunk, null, 2));
             // 当使用多个 streamMode 时，chunk 是 (mode, data) 二元组
             if (Array.isArray(chunk) && chunk.length === 2) {
                 const [mode, data] = chunk as [string, any];
-                console.log(`🔍 [DEBUG] mode: ${mode}`);
+                // console.log(`🔍 [DEBUG] mode: ${mode}`);
 
                 // 处理自定义事件
                 if (mode === "custom") {
-                    console.log("🎨 [EVENT] custom:", data.type);
+                    // console.log("🎨 [EVENT] custom:", data.type);
                     yield* handleCustomEventGenerator(data);
                 }
                 // 处理 messages 模式（LLM token 流）
                 else if (mode === "messages") {
-                    console.log("📝 [EVENT] messages mode");
+                    // console.log("📝 [EVENT] messages mode");
                     if (Array.isArray(data)) {
                         // 解构赋值，兼容不同长度的数组
                         const [messageChunk, metadata] = data;
@@ -217,7 +217,7 @@ export async function* streamAgentWithSubgraphsSimple(
                 }
                 // 处理更新事件
                 else if (mode === "updates") {
-                    console.log("🔄 [EVENT] updates:", Object.keys(data));
+                    // console.log("🔄 [EVENT] updates:", Object.keys(data));
                     lastMainUpdate = data;
                     yield* handleUpdateEventGenerator(data);
                 }

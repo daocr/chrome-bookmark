@@ -9,6 +9,7 @@ import {
     SUBAGENT_END,
     SUBAGENT_ERROR,
 } from "../events";
+import {ContextFactory} from "../context";
 
 // 导入任务描述模板（兼容 Node 和浏览器环境）
 import {SUBAGENT_TASK_PROMPT} from "../agents/prompt/subagent_task";
@@ -16,28 +17,36 @@ import {SUBAGENT_TASK_PROMPT} from "../agents/prompt/subagent_task";
 export const callSubagent = tool(
     async (params, config: LangGraphRunnableConfig) => {
         // 1. 实际读取并解构 params
-        const {subagent_type, description, prompt, task_id} = params;
+        const {subagent, description, prompt, task_id} = params;
 
-        console.log(`[Main Agent] 正在调用子代理: ${subagent_type}`);
+        console.log(`[Main Agent] 正在调用子代理: ${subagent}`);
         console.log(`[Main Agent] 任务描述: ${description}`);
         console.log(`[Main Agent] Prompt: ${prompt}`);
 
         // 发送子代理开始事件
         config?.writer?.({
             type: SUBAGENT_START,
-            subagent_type,
+            subagent,
             description,
             task_id: task_id || `task_${Date.now()}`,
         });
 
         try {
-            // 2. 使用 SubAgentFactory 创建对应类型的代理
-            const agent = await SubAgentFactory.createByType(subagent_type);
 
-            // 3. 流式调用子代理，并发送进度事件
+
+            // 2. 使用 SubAgentFactory 创建对应类型的代理
+            const agent = await SubAgentFactory.createByType(subagent);
+
+            // 3. 使用 ContextFactory 创建对应的上下文
+            const context = ContextFactory.createContextByType(subagent, {
+                config,
+                // extra: { /* 可从 params 中提取的额外配置 */ }
+            });
+
+            // 4. 流式调用子代理，并发送进度事件
             config?.writer?.({
                 type: SUBAGENT_THINKING,
-                subagent_type,
+                subagent,
                 content: `正在执行任务: ${description}`,
             });
 
@@ -51,6 +60,7 @@ export const callSubagent = tool(
                 },
                 {
                     streamMode: ["updates", "custom"],
+                    context
                 }
             );
 
@@ -67,7 +77,7 @@ export const callSubagent = tool(
                         // 转发自定义事件（包含思考过程等重要信息）
                         config?.writer?.({
                             type: SUBAGENT_CUSTOM,
-                            subagent_type,
+                            subagent,
                             event: data,
                         });
                     } else if (mode === "updates") {
@@ -93,38 +103,55 @@ export const callSubagent = tool(
 
             // 4. 提取子代理的最终回复
             const lastMessage = subagentResult.messages?.[subagentResult.messages.length - 1];
-            const responseContent = lastMessage?.content || JSON.stringify(subagentResult);
+            let responseContent = lastMessage?.content || JSON.stringify(subagentResult);
 
             // 发送子代理完成事件
             config?.writer?.({
                 type: SUBAGENT_END,
-                subagent_type,
+                subagent,
                 result: responseContent,
             });
+
+            // 根据 subagent 处理特定逻辑
+            switch (subagent) {
+                case "explore":
+                    // 提取 taskResultList 并直接覆盖 responseContent
+                    if (context?.taskResultList && Array.isArray(context.taskResultList) && context.taskResultList.length > 0) {
+                        const taskResultsInfo = context.taskResultList.join('\n\n');
+                        // 【修改点】：不再使用 `${responseContent}\n\n...` 拼接，直接覆写
+                        responseContent = `## 任务执行结果详情：\n${taskResultsInfo}`;
+                    } else {
+                        // 处理什么都没查到的情况
+                        responseContent = `## 任务执行结果详情：\n未找到相关书签或目录。`;
+                    }
+                    break;
+            }
+
+
 
             // 5. 返回子代理的执行结果给主 Agent
             return JSON.stringify({
                 success: true,
                 status: "SUBAGENT_COMPLETED",
                 task_id: task_id || `session_${Date.now()}`,
-                subagent_type,
+                subagent,
                 result: responseContent,
-                message: `子代理 ${subagent_type} 已完成: ${description}`
+                message: `子代理 ${subagent} 已完成: ${description}`
             });
         } catch (error) {
-            console.error(`[Main Agent] 子代理 ${subagent_type} 执行失败:`, error);
+            console.error(`[Main Agent] 子代理 ${subagent} 执行失败:`, error);
 
             // 发送子代理错误事件
             config?.writer?.({
                 type: SUBAGENT_ERROR,
-                subagent_type,
+                subagent,
                 error: error instanceof Error ? error.message : String(error),
             });
 
             return JSON.stringify({
                 success: false,
                 status: "SUBAGENT_FAILED",
-                subagent_type,
+                subagent,
                 error: error instanceof Error ? error.message : String(error)
             });
         }
@@ -136,7 +163,7 @@ export const callSubagent = tool(
             `- explore: 负责纯只读的书签检索、目录树读取。\n- analyze: 负责重度推理与书签分类聚类。\n- execute: 唯一拥有物理修改权限的代理，负责执行增删改移。`
         ),
         schema: z.object({
-            subagent_type: z.enum(["explore", "analyze", "execute"]).describe("The type of specialized agent to use."),
+            subagent: z.enum(["explore", "analyze", "execute"]).describe("The type of specialized agent to use."),
             description: z.string().describe("A short (3-5 words) description of the task."),
             prompt: z.string().describe("The highly detailed task instruction for the agent to perform, including all specific IDs and context."),
             task_id: z.string().optional().describe("Pass a prior task_id to resume a previous subagent session instead of starting fresh.")
