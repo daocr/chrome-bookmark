@@ -34,13 +34,16 @@ export type ThinkingEvent = ThinkingStartEvent | ThinkingContentEvent | Thinking
  * 创建带工具的 LLM 实例（主代理工具集）
  *
  * 主代理工具包括：
- * - callSubagent: 委派任务给子代理 (explore/analyze/execute)
+ * - get_all_bookmarks: 获取完整的书签 JSON 树
+ * - search_bookmarks: 全局模糊搜索书签或文件夹
+ * - callSubagent: 委派任务给子代理 (analyze/execute)
  * - askQuestion: 向用户提问澄清歧义
- * - requestPlanApproval: 请求用户批准高危操作计划
  * - writeTodo/readTodo: 任务管理和进度跟踪
+ * - plan_enter/plan_exit: 规划模式切换
  */
 const createModelWithTools = async () => {
     const llm = await getLLM();
+    // primaryAgentTools 已经包含了 readOnlyTools (get_all_bookmarks, search_bookmarks)
     return llm.bindTools(primaryAgentTools);
 };
 

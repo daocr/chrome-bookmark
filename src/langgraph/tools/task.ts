@@ -90,7 +90,7 @@ export const callSubagent = tool(
             // 从最后的 updates 中获取最终结果
             if (lastUpdate) {
                 // 合并所有节点的更新到最终状态
-                subagentResult = { messages: [] };
+                subagentResult = {messages: []};
                 for (const nodeName in lastUpdate) {
                     const nodeData = lastUpdate[nodeName];
                     if (nodeData.messages) {
@@ -111,23 +111,6 @@ export const callSubagent = tool(
                 subagent,
                 result: responseContent,
             });
-
-            // 根据 subagent 处理特定逻辑
-            switch (subagent) {
-                case "explore":
-                    // 提取 taskResultList 并直接覆盖 responseContent
-                    if (context?.taskResultList && Array.isArray(context.taskResultList) && context.taskResultList.length > 0) {
-                        const taskResultsInfo = context.taskResultList.join('\n\n');
-                        // 【修改点】：不再使用 `${responseContent}\n\n...` 拼接，直接覆写
-                        responseContent = `## 任务执行结果详情：\n${taskResultsInfo}`;
-                    } else {
-                        // 处理什么都没查到的情况
-                        responseContent = `## 任务执行结果详情：\n未找到相关书签或目录。`;
-                    }
-                    break;
-            }
-
-
 
             // 5. 返回子代理的执行结果给主 Agent
             return JSON.stringify({
@@ -160,10 +143,10 @@ export const callSubagent = tool(
         name: "call_subagent",
         description: SUBAGENT_TASK_PROMPT.replace(
             "{agents}",
-            `- explore: 负责纯只读的书签检索、目录树读取。\n- analyze: 负责重度推理与书签分类聚类。\n- execute: 唯一拥有物理修改权限的代理，负责执行增删改移。`
+            ` analyze: 负责重度推理与书签分类聚类。\n- execute: 唯一拥有物理修改权限的代理，负责执行增删改移。`
         ),
         schema: z.object({
-            subagent: z.enum(["explore", "analyze", "execute"]).describe("The type of specialized agent to use."),
+            subagent: z.enum(["analyze", "execute"]).describe("The type of specialized agent to use."),
             description: z.string().describe("A short (3-5 words) description of the task."),
             prompt: z.string().describe("The highly detailed task instruction for the agent to perform, including all specific IDs and context."),
             task_id: z.string().optional().describe("Pass a prior task_id to resume a previous subagent session instead of starting fresh.")

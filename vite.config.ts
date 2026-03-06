@@ -21,13 +21,29 @@ export default defineConfig({
       "node:async_hooks": path.resolve(__dirname, "./src/polyfills/async_hooks.ts"),
     },
   },
+  define: {
+    global: "globalThis",
+  },
+  // 多入口配置
   build: {
     outDir: "dist",
     emptyOutDir: true,
     minify: false,
     sourcemap: true,
-  },
-  define: {
-    global: "globalThis",
+    rollupOptions: {
+      input: {
+        index: path.resolve(__dirname, "index.html"),
+        background: path.resolve(__dirname, "src/background/background.ts"),
+      },
+      output: {
+        entryFileNames: (chunkInfo) => {
+          // background 保持独立文件名
+          if (chunkInfo.name === "background") {
+            return "background.js"
+          }
+          return "assets/[name]-[hash].js"
+        },
+      },
+    },
   },
 })

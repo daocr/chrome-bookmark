@@ -61,6 +61,35 @@ export const moveBookmarksBatch = tool(
     }
 );
 
+export const updateBookmarksBatch = tool(
+    async ({items}, _config) => {
+        try {
+            const results = [];
+            for (const item of items) {
+                const res = await chrome.bookmarks.update(item.id, {
+                    title: item.title,
+                    url: item.url,
+                });
+                results.push(res);
+            }
+            return JSON.stringify({success: true, data: results, count: results.length});
+        } catch (error) {
+            return JSON.stringify({success: false, error: String(error)});
+        }
+    },
+    {
+        name: "update_bookmarks_batch",
+        description: `Update title and/or URL of one or multiple existing bookmarks or folders.`,
+        schema: z.object({
+            items: z.array(z.object({
+                id: z.string().describe("The NUMERIC ID of the bookmark or folder to update"),
+                title: z.string().optional().describe("New title for the bookmark or folder"),
+                url: z.string().optional().describe("New URL for the bookmark (ignored for folders)"),
+            })).describe("List of items to update"),
+        }),
+    }
+);
+
 export const removeBookmarksBatch = tool(
     async ({ids}, _config) => {
         try {
@@ -106,6 +135,7 @@ export const removeBookmarkTreeDANGER = tool(
 export const executionTools = [
     createBookmarksBatch,
     moveBookmarksBatch,
+    updateBookmarksBatch,
     removeBookmarksBatch,
     removeBookmarkTreeDANGER
 ];

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { streamAgentWithSubgraphsSimple } from "@/langgraph/agents/agent";
 import { defaultEventHandlerRegistry, type EventHandlerContext } from "./handlers";
 import type { ThinkingStep } from "./types";
@@ -30,6 +30,7 @@ export interface SubagentEvent {
  * - 流式显示最终响应
  * - 正确处理多次调用同一子代理的情况
  * - 正确处理主 agent 多次思考的情况
+ * - 监听来自 background.js 的快速收藏请求
  */
 export function useStreamingChat() {
     const [messages, setMessages] = useState<StreamingMessage[]>([]);
@@ -122,6 +123,41 @@ export function useStreamingChat() {
             setIsLoading(false);
         }
     }, [messages]);
+
+    // 监听来自 background.js 的 QUICK_BOOKMARK 消息
+    useEffect(() => {
+        // 1. 检查是否有存放在 storage 中的待处理任务 (处理侧边栏刚打开的情况)
+        chrome.storage.local.get(["pendingQuickBookmark"], (result: { [key: string]: any }) => {
+            if (result.pendingQuickBookmark) {
+                const { url, title, timestamp } = result.pendingQuickBookmark;
+                // 确保是最近 5 分钟内的任务，防止重复触发旧任务
+                if (Date.now() - timestamp < 5 * 60 * 1000) {
+                    const prompt = `帮我把这个网址收藏到合适的目录：${url} (标题: ${title})`;
+                    handleSubmit(prompt);
+                }
+                // 清理已读取的任务
+                chrome.storage.local.remove("pendingQuickBookmark");
+            }
+        });
+
+        // 2. 监听实时消息 (处理侧边栏已打开的情况)
+        const listener = (message: any, _sender: any, sendResponse: (response?: any) => void) => {
+            if (message.type === "QUICK_BOOKMARK") {
+                const { url, title } = message.data;
+                const prompt = `帮我把这个网址收藏到合适的目录：${url} (标题: ${title})`;
+
+                // 触发收藏逻辑
+                handleSubmit(prompt);
+
+                // 返回成功响应
+                sendResponse({ success: true });
+            }
+            return true;
+        };
+
+        chrome.runtime.onMessage.addListener(listener);
+        return () => chrome.runtime.onMessage.removeListener(listener);
+    }, [handleSubmit]);
 
     return {
         messages,

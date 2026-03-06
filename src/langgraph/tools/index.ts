@@ -10,9 +10,8 @@
 
 // 单个工具导出 - Read-Only Tools
 export {
-    getAllBrowserFolders,
-    searchBookmarks,
-    getBookmarkChildren
+    getAllBrowserBookmarks,
+    searchBookmarks
 } from "./bookmark-read-only-tools";
 
 // 单个工具导出 - Write Tools
@@ -40,9 +39,11 @@ import {callSubagent as _callSubagent} from "./task";
 import {askQuestion as _askQuestion} from "./interaction-tools";
 import {writeTodo as _writeTodo, readTodo as _readTodo} from "./todo-tools";
 import {planEnter as _planEnter, planExit as _planExit} from "./plan-tools";
+import {readOnlyTools as _readOnlyTools} from "./bookmark-groups";
 
 // 主代理工具集 (Primary Agent 使用的所有工具)
 export const primaryAgentTools = [
+    ..._readOnlyTools,
     _callSubagent,
     _askQuestion,
     _writeTodo,

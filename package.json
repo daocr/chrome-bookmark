@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && cp public/manifest.json dist/",
+    "build": "tsc && vite build && cp public/manifest.json dist/ && cp public/icon.png dist/",
     "preview": "vite preview"
   },
   "dependencies": {

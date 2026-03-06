@@ -1,7 +1,7 @@
 /**
  * Read-Only Bookmark Tools
  *
- * 无副作用的只读工具，适合分配给 Explore/Search Agent
+ * 无副作用的只读工具，用于探索和搜索书签。
  */
 
 import {tool} from "@langchain/core/tools";
@@ -9,201 +9,187 @@ import {z} from "zod";
 import {getFullPath} from "./bookmark-helpers";
 
 /**
- * 递归统计目录数量并构建目录层级字符串
- * @param nodes 书签树节点数组
- * @param indent 缩进级别
- * @returns { count: number, structure: string } 目录数量和目录层级字符串
+ * 简化书签树结构，仅保留核心字段以节省 Token 并便于模型理解
  */
-function analyzeFolderTree(nodes: chrome.bookmarks.BookmarkTreeNode[], indent: number = 0): {
-    count: number;
-    structure: string
+function simplifyBookmarkTree(nodes: chrome.bookmarks.BookmarkTreeNode[]): {
+    folderCount: number;
+    bookmarkCount: number;
+    tree: any[]
 } {
-    const lines: string[] = [];
-    const prefix = "  ".repeat(indent);
-    let count = 0;
+    let folderCount = 0;
+    let bookmarkCount = 0;
+    
+    const tree = nodes.map((node: chrome.bookmarks.BookmarkTreeNode) => {
+        const isFolder = !node.url;
+        const simplified: any = {
+            id: node.id,
+            title: node.title || (node.id === "0" ? "Root" : "Untitled")
+        };
 
-    for (const node of nodes) {
-        // 只处理文件夹（有 children 属性的节点）
-        if (node.children) {
-            count++;
-            lines.push(`${prefix}${node.title} (id: ${node.id})`);
-            // 递归处理子文件夹
-            if (node.children.length > 0) {
-                const result = analyzeFolderTree(node.children, indent + 1);
-                count += result.count;
-                lines.push(result.structure);
+        if (isFolder) {
+            // 排除根节点自身的统计
+            if (node.id !== "0") folderCount++;
+            if (node.children && node.children.length > 0) {
+                const result = simplifyBookmarkTree(node.children);
+                folderCount += result.folderCount;
+                bookmarkCount += result.bookmarkCount;
+                simplified.type = "folder";
+                simplified.children = result.tree;
+            } else {
+                simplified.type = "folder";
+                simplified.children = [];
             }
+        } else {
+            bookmarkCount++;
+            simplified.type = "bookmark";
+            simplified.url = node.url;
         }
-    }
+        return simplified;
+    });
 
-    return {count, structure: lines.join("\n")};
+    return {folderCount, bookmarkCount, tree};
 }
 
-export const getAllBrowserFolders = tool(
+export const getAllBrowserBookmarks = tool(
     async (_input, _config) => {
         try {
             const tree = await chrome.bookmarks.getTree();
-            const {count, structure} = analyzeFolderTree(tree);
+            const {folderCount, bookmarkCount, tree: simplifiedTree} = simplifyBookmarkTree(tree);
 
-            // 将 structure 添加到 taskResultList
-            const currentList = _config?.context?.taskResultList || [];
-            const updatedList = [...currentList, "浏览器全部目录信息: \n" + structure];
+            const result = {
+                summary: {
+                    totalFolders: folderCount,
+                    totalBookmarks: bookmarkCount,
+                    message: "提示: id 为数字字符串，请使用该 ID 进行后续操作。"
+                },
+                bookmarks: (simplifiedTree[0] && simplifiedTree[0].children) ? simplifiedTree[0].children : simplifiedTree
+            };
 
-            // 更新 context 中的 taskResultList
-            if (_config?.context) {
-                _config.context.taskResultList = updatedList;
-            }
-
-            return JSON.stringify({
-                data: structure,
-                message: `共找到 ${count} 个文件夹。请使用这些数字 ID 作为查询目标。`,
-            });
+            return JSON.stringify(result, null, 2);
         } catch (error) {
             return JSON.stringify({
                 success: false,
-                error: error instanceof Error ? error.message : String(error),
+                error: error instanceof Error ? error.message : String(error)
             });
         }
     },
     {
-        name: "get_all_browser_folders",
-        description: "获取所有书签文件夹的层级结构和数字 ID。当用户询问整体目录结构，或者你需要查找某个特定文件夹的准确 ID 时使用此工具。",
-        schema: z.object({}),
-        returnDirect: true, // 核心配置：阻断大模型过度思考
+        name: "get_all_bookmarks",
+        description: "获取浏览器中所有的书签和文件夹完整结构（JSON 格式）。当你需要了解全局布局、寻找特定位置或准备进行大规模整理时使用。返回包含层级关系、名称、ID 和 URL 的结构化数据。",
+        schema: z.object({})
     }
 );
 
 export const searchBookmarks = tool(
-    async ({query, maxResults = 20}, _config) => {
+    async ({query, maxResults = 50}, _config) => {
         try {
-            const results = await chrome.bookmarks.search(query);
+            // 使用 unknown 中转解决类型不重叠问题
+            const results = (await chrome.bookmarks.search(query)) as unknown as chrome.bookmarks.BookmarkTreeNode[];
 
-            if (results.length === 0) {
+            if (!results || results.length === 0) {
                 return JSON.stringify({
-                    success: true,
-                    data: [],
-                    count: 0,
-                    message: `未找到匹配关键词 '${query}' 的书签。`,
+                    message: `未找到匹配关键词 "${query}" 的结果。`,
+                    results: []
                 });
             }
 
             const limitedResults = results.slice(0, maxResults);
 
-            // 为大模型加工数据：附加上完整路径
             const enrichedResults = await Promise.all(
-                limitedResults.map(async (node) => {
+                limitedResults.map(async (node: chrome.bookmarks.BookmarkTreeNode) => {
                     const parentId = node.parentId ? String(node.parentId) : "0";
-                    const fullPath = await getFullPath(parentId);
-                    return {...node, folderPath: fullPath};
+                    const path = await getFullPath(parentId);
+                    return {
+                        id: node.id,
+                        title: node.title,
+                        url: node.url || null,
+                        type: node.url ? "bookmark" : "folder",
+                        path: path
+                    };
                 })
             );
 
-            // 将结果转换为字符串格式，增强时间戳的安全转换
-            const resultsString = enrichedResults.map(item => {
-                const dateAdded = item.dateAdded ? new Date(Number(item.dateAdded)).toLocaleString() : 'N/A';
-                const dateGroupModified = item.dateGroupModified ? new Date(Number(item.dateGroupModified)).toLocaleString() : 'N/A';
-                const url = item.url || 'N/A (文件夹)';
-                return `ID: ${item.id}\n名称: ${item.title}\nURL: ${url}\n创建时间: ${dateAdded}\n最后修改: ${dateGroupModified}\n对应目录: ${item.folderPath}\n---`;
-            }).join('\n');
-
-            // 将结果字符串添加到 taskResultList
-            const currentList = _config?.context?.taskResultList || [];
-            const updatedList = [...currentList, `搜索关键词 '${query}' 的结果: \n${resultsString}`];
-
-            // 更新 context 中的 taskResultList
-            if (_config?.context) {
-                _config.context.taskResultList = updatedList;
-            }
-
             return JSON.stringify({
                 query,
-                data: resultsString,
-                count: results.length,
-            });
+                totalMatches: results.length,
+                displayedCount: enrichedResults.length,
+                results: enrichedResults
+            }, null, 2);
         } catch (error) {
             return JSON.stringify({
                 success: false,
-                error: error instanceof Error ? error.message : String(error),
+                error: error instanceof Error ? error.message : String(error)
             });
         }
     },
     {
         name: "search_bookmarks",
-        description: "全局搜索工具。根据用户提供的关键词，在所有书签的标题和 URL 中进行模糊匹配搜索。这是查找特定书签的首选工具。",
+        description: "全局搜索书签。支持根据标题或 URL 关键词查找（JSON 格式）。当你只知道名称但不知道具体位置时，这是最高效的工具。返回包含 ID、完整路径和 URL 的结构化信息。",
         schema: z.object({
-            query: z.string().describe("需要搜索的关键词"),
-            maxResults: z.number().optional().default(20).describe("最大返回结果数，避免上下文超限"),
-        }),
-        returnDirect: true, // 核心配置：阻断大模型过度思考
+            query: z.string().describe("搜索关键词（标题或 URL）"),
+            maxResults: z.number().optional().default(50).describe("最大返回结果数，默认 50"),
+        })
     }
 );
 
-export const getBookmarkChildren = tool(
-    async ({id}, _config) => {
+export const getBookmarksById = tool(
+    async ({ids}, _config) => {
+        if (!ids || ids.length === 0) {
+            return JSON.stringify({
+                message: "未提供任何 ID。",
+                results: []
+            });
+        }
         try {
-            const children = await chrome.bookmarks.getChildren(id);
+            // 解决 TS2345: Argument of type string[] is not assignable to parameter of type string | [string, ...string[]]
+            // 通过前面的 length 检查确保了 ids 不为空
+            const results = (await chrome.bookmarks.get(ids as [string, ...string[]])) as unknown as chrome.bookmarks.BookmarkTreeNode[];
 
-            if (children.length === 0) {
+            if (!results || results.length === 0) {
                 return JSON.stringify({
-                    success: true,
-                    id,
-                    data: "该目录为空。",
-                    count: 0,
+                    message: `未找到 ID 为 [${ids.join(", ")}] 的书签或文件夹。`,
+                    results: []
                 });
             }
 
-            // 将 children 信息转换为字符串格式，增加对根节点和时间戳的防御性处理
-            const childrenString = await Promise.all(
-                children.map(async (item) => {
-                    const parentId = item.parentId ? String(item.parentId) : "0";
-                    const fullPath = await getFullPath(parentId);
-
-                    const dateAdded = item.dateAdded ? new Date(Number(item.dateAdded)).toLocaleString() : 'N/A';
-                    const dateGroupModified = item.dateGroupModified ? new Date(Number(item.dateGroupModified)).toLocaleString() : 'N/A';
-                    const type = item.url ? '书签' : '文件夹';
-                    const url = item.url || 'N/A';
-
-                    return `[${type}] ID: ${item.id}\n名称: ${item.title}\nURL: ${url}\n创建时间: ${dateAdded}\n最后修改: ${dateGroupModified}\n对应目录: ${fullPath}\n---`;
+            const enrichedResults = await Promise.all(
+                results.map(async (node: chrome.bookmarks.BookmarkTreeNode) => {
+                    const parentId = node.parentId ? String(node.parentId) : "0";
+                    const path = await getFullPath(parentId);
+                    return {
+                        id: node.id,
+                        title: node.title,
+                        url: node.url || null,
+                        type: node.url ? "bookmark" : "folder",
+                        path: path
+                    };
                 })
-            ).then(results => results.join('\n'));
-
-            // 将结果字符串添加到 taskResultList
-            const currentList = _config?.context?.taskResultList || [];
-            const updatedList = [...currentList, `目录 ID '${id}' 的子项内容: \n${childrenString}`];
-
-            // 更新 context 中的 taskResultList
-            if (_config?.context) {
-                _config.context.taskResultList = updatedList;
-            }
+            );
 
             return JSON.stringify({
-                success: true,
-                id,
-                data: childrenString,
-                count: children.length,
-            });
+                requestedIds: ids,
+                foundCount: enrichedResults.length,
+                results: enrichedResults
+            }, null, 2);
         } catch (error) {
             return JSON.stringify({
                 success: false,
-                error: `获取子节点失败。请确认 ID '${id}' 是否正确。错误信息: ${String(error)}`,
+                error: `查询 ID 失败。请确保 ID [${ids.join(", ")}] 是正确的数字字符串。错误: ${error instanceof Error ? error.message : String(error)}`
             });
         }
     },
     {
-        name: "get_bookmark_children",
-        description: "获取指定文件夹下的直属内容。必须传入严格的数字 ID（如 '1', '15'）。仅当用户明确要求查看某个特定目录里的内容时使用。",
+        name: "get_bookmarks_by_id",
+        description: "根据一个或多个数字 ID 精确获取书签或文件夹的详细信息（JSON 格式）。当你已经有 ID 并需要确认其当前的标题、URL 或所在路径时使用。",
         schema: z.object({
-            id: z.string()
-                .regex(/^\d+$/, "参数错误：ID 必须是严格的纯数字字符串（例如 '1', '15'）。严禁传入文件夹名称或包含字母！")
-                .describe("目标文件夹的纯数字 ID"),
-        }),
-        returnDirect: true, // 核心配置：阻断大模型过度思考
+            ids: z.array(z.string()).describe("需要查询的数字 ID 数组（例如 ['1', '105']）"),
+        })
     }
 );
 
 // 派发给负责搜索、检索信息的 Agent (无副作用)
 export const readOnlyTools = [
-    getAllBrowserFolders,
+    getAllBrowserBookmarks,
     searchBookmarks,
-    getBookmarkChildren
+    getBookmarksById
 ];

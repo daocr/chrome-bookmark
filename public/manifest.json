@@ -6,7 +6,7 @@
   "side_panel": {
     "default_path": "index.html"
   },
-  "permissions": ["sidePanel", "bookmarks", "storage"],
+  "permissions": ["sidePanel", "bookmarks", "storage", "contextMenus", "notifications"],
   "host_permissions": [
     "https://ark.cn-beijing.volces.com/*"
   ],

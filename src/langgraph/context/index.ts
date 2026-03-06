@@ -5,11 +5,6 @@
  */
 
 export {
-    exploreContextSchema,
-    type ExploreContext
-} from "./explore-context";
-
-export {
     analyzeContextSchema,
     type AnalyzeContext
 } from "./analyze-context";
